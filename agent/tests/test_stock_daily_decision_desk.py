@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.swarm.presets import build_run_from_preset, load_preset
-from src.swarm.task_store import validate_dag
+from src.swarm.task_store import topological_layers, validate_dag
 
 
 PRESET_NAME = "stock_daily_decision_desk"
@@ -45,6 +45,25 @@ def test_daily_desk_loads_and_has_valid_dag() -> None:
     assert run.preset_name == PRESET_NAME
     assert {agent.id for agent in run.agents} == EXPECTED_AGENTS
     assert len(run.agents) == 12
+    assert run.preset_name == "stock_daily_decision_desk"
+
+
+def test_daily_desk_is_primary_and_orders_research_before_decision_brief() -> None:
+    run = _run()
+    layers = topological_layers(run.tasks)
+    layer_index = {
+        task_id: index
+        for index, layer in enumerate(layers)
+        for task_id in layer
+    }
+
+    assert run.preset_name == "stock_daily_decision_desk"
+    assert run.tasks[-1].id == "task-human-brief"
+    assert layer_index["task-market-regime"] < layer_index["task-candidate-committee"]
+    assert layer_index["task-candidate-committee"] < layer_index["task-ta-structure"]
+    assert layer_index["task-candidate-committee"] < layer_index["task-ta-counter"]
+    assert layer_index["task-ta-execution"] < layer_index["task-portfolio-risk"]
+    assert layer_index["task-portfolio-risk"] < layer_index["task-human-brief"]
 
 
 def test_research_flows_into_multi_perspective_ta_before_risk_review() -> None:
@@ -80,10 +99,36 @@ def test_final_output_requires_human_approval_and_forbids_autonomous_execution()
 
     assert "HUMAN_APPROVAL_REQUIRED: true" in editor_prompt
     assert "DO_NOT_EXECUTE_AUTONOMOUSLY: true" in editor_prompt
+    assert "NO_TRADE" in editor_prompt
     assert "Never execute" in editor_prompt
     assert "notification system only" in news_prompt
     assert "do not place, cancel, reduce, or close orders" in news_prompt
     assert "No autonomous order action is permitted" in risk_prompt
+    assert "URGENT_EXIT_REVIEW_REQUIRED" in news_prompt
+    assert "URGENT_EXIT_REVIEW_REQUIRED" in risk_prompt
+    assert "human_review_required" in risk_prompt
+    assert "alpha-agent confidence to override" in risk_prompt
+    assert "ENTRY_BLOCK" in risk_prompt
+
+
+def test_news_risk_protection_path_preserves_evidence_and_human_notification() -> None:
+    run = _run()
+    agents = {agent.id: agent for agent in run.agents}
+    prompt = agents["news_risk_notifier"].system_prompt
+
+    for field in (
+        "Source Validation",
+        "Relevance + Severity Analysis",
+        "Portfolio / Candidate Mapping",
+        "URGENT HUMAN NOTIFICATION",
+        "source quality",
+        "timestamp",
+        "affected symbols",
+        "transmission path",
+        "corroboration",
+        "de-escalate",
+    ):
+        assert field in prompt
 
 
 def test_stock_only_scope_has_no_crypto_or_coinbase_language() -> None:

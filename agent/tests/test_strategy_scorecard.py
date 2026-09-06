@@ -89,6 +89,42 @@ def test_unvalidated_strategy_remains_shadow_only_even_with_good_backtest() -> N
     assert "holdout_not_passed" in score.gate_failures
 
 
+def test_missing_walk_forward_validation_prevents_full_activation() -> None:
+    record = _record(
+        "missing_walk_forward",
+        expectancy_r=0.30,
+        profit_factor=1.55,
+        drawdown=14.0,
+        walk_forward=False,
+    )
+
+    score = score_strategy(record, MarketRegime.trend_bull)
+
+    assert score.recommendation == "SHADOW_ONLY"
+    assert "walk_forward_not_passed" in score.gate_failures
+
+
+def test_high_win_rate_alone_cannot_activate_an_unvalidated_method() -> None:
+    record = _record(
+        "high_hit_rate_unvalidated",
+        expectancy_r=0.03,
+        profit_factor=1.08,
+        drawdown=12.0,
+        trades=400,
+        win_rate=0.92,
+        walk_forward=False,
+        holdout=False,
+        cost_stress=False,
+    )
+
+    score = score_strategy(record, MarketRegime.trend_bull)
+
+    assert score.recommendation == "SHADOW_ONLY"
+    assert score.total_score < 80
+    assert "walk_forward_not_passed" in score.gate_failures
+    assert "holdout_not_passed" in score.gate_failures
+
+
 def test_current_regime_can_change_strategy_ranking() -> None:
     trend = _record(
         "trend_strategy",

@@ -1,6 +1,9 @@
 name: stock_daily_decision_desk
 title: "Stock Daily Decision Desk"
 description: "Stock-only daily research, candidate selection, multi-perspective technical review, portfolio risk gating, news notification, and mandatory human approval."
+workflow_role: primary_daily_stock_opportunity_workflow
+supporting_workflow: stock_deep_dive_research_committee
+execution_mode: human_in_the_loop_recommendation_only
 
 agents:
   - id: market_regime_researcher
@@ -198,6 +201,9 @@ agents:
       ## Instruction 2:
       Classify notifications as CLEAR, REVIEW, HIGH_PRIORITY, or URGENT, with source quality, timestamp, affected symbols, transmission path, confidence, and suggested human review question.
 
+      ## Instruction 2a:
+      Follow this parallel protection path: Real-Time News / Risk Event -> Source Validation -> Relevance + Severity Analysis -> Portfolio / Candidate Mapping -> Risk Recommendation -> URGENT HUMAN NOTIFICATION -> Human Reviews and Decides. Preserve source provenance, corroboration status, severity, confidence, and objective de-escalation criteria.
+
       ## Instruction 3:
       Corroborate severe claims proportional to severity and distinguish rumor from confirmed information.
 
@@ -205,7 +211,7 @@ agents:
       This is a notification system only. You do not place, cancel, reduce, or close orders. You do not authorize autonomous trading actions.
 
       ## Instruction 5:
-      For urgent events, state exactly what the human should verify before making a decision and what would de-escalate the alert.
+      For urgent events, use URGENT_REVIEW_REQUIRED or URGENT_EXIT_REVIEW_REQUIRED as appropriate, state exactly what the human should verify before making a decision, and state what would de-escalate the alert. Never issue an autonomous liquidation or order action.
 
       # Notes:
       1. Headline intensity is not the same as portfolio relevance.
@@ -370,16 +376,16 @@ agents:
       Do not assume a reversal is due after consecutive losses. Determine whether losses are consistent with expected variance, concentrated in one strategy family, or evidence of regime/edge deterioration.
 
       ## Instruction 3:
-      In LOCKOUT, block all new trade recommendations. In DEFENSIVE or RECOVERY, reduce recommended risk and raise the evidence threshold.
+      In LOCKOUT, block all new trade recommendations and do not permit alpha-agent confidence to override the state. In DEFENSIVE or RECOVERY, reduce recommended risk and raise the evidence threshold.
 
       ## Instruction 4:
       Preserve conservative small-account defaults unless later validation replaces them: target risk per trade around 0.5% of equity; hard max 1.0%; soft daily loss stop 2%; hard weekly loss stop 5%; max 4 concurrent positions; max 35% correlated-cluster exposure.
 
       ## Instruction 5:
-      An URGENT news notification can trigger BLOCK_NEW_ENTRIES or EXIT_REVIEW_REQUIRED, but the system must still send the decision to a human. No autonomous order action is permitted.
+      An URGENT news notification can trigger ENTRY_BLOCK or URGENT_EXIT_REVIEW_REQUIRED, but the system must still send the decision to a human. No autonomous order action is permitted.
 
       ## Instruction 6:
-      Return CLEAR, SIZE_REDUCE, BLOCK_NEW_ENTRIES, EXIT_REVIEW_REQUIRED, or NO_TRADE plus portfolio_state, max_loss_dollars, risk_reasons, and conditions for normalization.
+      Return CLEAR, WATCH, CAUTION, ENTRY_BLOCK, SIZE_REDUCE_RECOMMENDED, EXIT_REVIEW_REQUIRED, URGENT_REVIEW_REQUIRED, URGENT_EXIT_REVIEW_REQUIRED, or NO_TRADE plus portfolio_state, proposed_loss_budget, risk_reasons, human_review_required, and objective conditions for normalization.
 
       # Notes:
       Human review remains mandatory even when the risk recommendation is urgent.
@@ -414,10 +420,13 @@ agents:
       Output: symbol, proposed_action, dominant_thesis, why_today, market_regime, strategy_method, technical_entry_condition, invalidation, target_zone, proposed_position_risk, evidence_for, evidence_against, news_alert_status, portfolio_risk_state, risk_governor_action, key_unknowns, and human_review_checklist.
 
       ## Instruction 4:
-      If the risk governor returns BLOCK_NEW_ENTRIES or NO_TRADE, the brief must preserve that block and cannot promote the trade.
+      If the risk governor returns ENTRY_BLOCK or NO_TRADE, the brief must preserve that block and cannot promote the trade.
 
       ## Instruction 5:
       If the recommendation depends on an URGENT news event, clearly label the specific facts the human must verify before acting.
+
+      ## Instruction 6:
+      A final brief is a recommendation only. It must never imply that an order was submitted, canceled, reduced, closed, or that an emergency exit was executed.
 
       # Notes:
       A WATCH or NO_TRADE brief is a successful outcome when uncertainty dominates edge.

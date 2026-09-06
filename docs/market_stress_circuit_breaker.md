@@ -62,7 +62,9 @@ Recommended initial behavior:
 
 No new discretionary directional positions may be opened.
 
-Existing positions are managed according to their stops, event risk, and emergency-risk policy. The system may reduce or close existing exposure if the Portfolio Risk Governor determines that risk is no longer acceptable.
+Existing positions are surfaced for human review according to their stops,
+event risk, and risk policy. The system may recommend reducing or closing
+exposure, but it may not execute that action autonomously.
 
 LOCKOUT may be triggered by any of the following classes of evidence:
 
@@ -137,18 +139,6 @@ Examples:
 - Banking or sovereign stress.
 - Major regulatory intervention.
 - Trading halts or exchange outages.
-
-### Crypto-Specific Stress
-
-Examples:
-
-- Funding-rate extremes.
-- Open-interest dislocations.
-- Liquidation cascades.
-- Stablecoin depegs.
-- Exchange outages.
-- Protocol exploits.
-- Abnormal exchange or on-chain flows.
 
 ## Loss-Streak Logic
 
@@ -245,7 +235,7 @@ LOCKOUT
         ↓
 CRITICAL NEWS / SYSTEMIC RISK
         ↓
-EMERGENCY RISK ACTION
+URGENT HUMAN EXIT REVIEW
         ↓
 MARKET-STRESS STATE
         ↓
@@ -269,8 +259,7 @@ Validation should favor broad, stable parameter regions and robustness across:
 - high-volatility regimes,
 - low-volatility regimes,
 - event shocks,
-- equities,
-- crypto,
+- U.S. equities,
 - different liquidity environments.
 
 If the circuit breaker only works under one narrow threshold combination, it should be treated as overfit.
@@ -298,4 +287,4 @@ This allows the system to evaluate whether a risk shutdown saved capital or unne
 
 This document defines the acceptance requirements for the future deterministic Portfolio Risk Engine and LiveRiskSentinel integration.
 
-It does **not** claim that the current swarm preset continuously enforces these controls yet. Live execution must remain disabled until the portfolio ledger, deterministic risk engine, market-stress telemetry, broker adapters, backtests, shadow mode, and recovery-state tests are implemented and accepted.
+It does **not** claim that the current swarm preset continuously enforces these controls yet. Live execution must remain disabled until the portfolio ledger, deterministic risk engine, market-stress telemetry, read-only account integration, backtests, shadow mode, and recovery-state tests are implemented and accepted. News and risk events produce recommendations and urgent human notifications; they do not execute liquidation.

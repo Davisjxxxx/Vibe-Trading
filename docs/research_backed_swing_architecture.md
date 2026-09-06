@@ -2,7 +2,7 @@
 
 ## Scope
 
-This is the controlling architecture for the current build. The system is **stock trading only**. Crypto, digital-asset execution, and crypto-specific risk feeds are out of scope for this phase.
+This is the controlling architecture for the current build. The active control plane is **U.S. stock trading only**. Digital-asset execution and non-equity risk feeds are outside this feature.
 
 The initial model portfolio is **$1,000**. The design objective is not maximum trade frequency. It is disciplined opportunity selection, capital preservation, auditable reasoning, and prospective validation.
 
@@ -21,6 +21,39 @@ The system must separate five decisions:
 The system may recommend actions, but a human remains the final decision maker.
 
 No component may place, cancel, reduce, or close a live order autonomously in the current design.
+
+## Controlling workflow hierarchy
+
+The primary daily workflow is `stock_daily_decision_desk`. The
+`swing_trading_command_center` preset is a supporting Stock Deep-Dive Research
+Committee invoked for candidates already surfaced by the daily desk.
+
+```text
+Market/Economic Regime
+        ↓
+Validated Strategy Suitability
+        ↓
+Daily Stock Research Agents
+        ↓
+Candidate Committee
+        ↓
+Ranked Stock Candidates
+        ↓
+Primary Technical Analysis
+        +
+Adversarial Technical Analysis
+        ↓
+Execution / Entry Quality Analysis
+        ↓
+Portfolio Risk / Circuit Breaker
+        ↓
+Human Decision Brief
+        ↓
+Human Executes or Rejects
+```
+
+The deep-dive committee provides evidence and a research brief; it is not a
+second daily orchestrator and cannot produce an executable order.
 
 ## Daily decision workflow
 
@@ -146,6 +179,30 @@ The news layer evaluates fresh stock, sector, regulatory, exchange, geopolitical
 
 It is a **notification and review system**, not an autonomous trade executor.
 
+The parallel protection path is:
+
+```text
+Real-Time News / Risk Event
+        ↓
+Source Validation
+        ↓
+Relevance + Severity Analysis
+        ↓
+Portfolio / Candidate Mapping
+        ↓
+Risk Recommendation
+        ↓
+URGENT HUMAN NOTIFICATION
+        ↓
+Human Reviews and Decides
+```
+
+Each event must preserve its timestamp, source provenance, source quality,
+corroboration status, affected symbols, transmission path, severity,
+confidence, and objective de-escalation criteria. An urgent event may produce
+`ENTRY_BLOCK`, `EXIT_REVIEW_REQUIRED`, or `URGENT_EXIT_REVIEW_REQUIRED`; it
+must never autonomously liquidate an open position.
+
 ## Candidate committee
 
 The candidate committee receives the independent research streams and ranks only the strongest opportunities for technical review.
@@ -172,12 +229,19 @@ Evaluates:
 
 - Multi-timeframe trend and structure
 - Support and resistance
+- Market structure
 - Relative strength
 - Moving-average context
+- Momentum and RSI/divergence
 - Volume behavior
+- Relative volume and VWAP where appropriate
 - Volatility
+- ATR
 - Gap behavior
+- Breakout/retest quality
 - Entry timing
+- Invalidation levels
+- Reward/risk
 
 Indicators are evidence, not independent votes. The system must avoid stacking multiple indicators that measure the same underlying price behavior.
 
@@ -188,10 +252,16 @@ A second perspective challenges the setup and searches for:
 - Failed breakout risk
 - Divergence
 - Exhaustion
+- Poor trade location
 - Nearby supply or demand
+- False support or resistance
 - Poor volume confirmation
 - Gap-through-stop risk
 - Volatility expansion
+- Whipsaw regime
+- Volatility instability
+- Poor reward/risk
+- Event risk
 - Regime mismatch
 - Crowded technical levels
 
@@ -359,7 +429,12 @@ HUMAN_APPROVAL_REQUIRED: true
 DO_NOT_EXECUTE_AUTONOMOUSLY: true
 ```
 
-If the risk governor blocks new entries or returns no-trade, the final brief must preserve that block.
+Supported recommendation actions include `CLEAR`, `WATCH`, `CAUTION`,
+`NO_TRADE`, `ENTRY_BLOCK`, `SIZE_REDUCE_RECOMMENDED`,
+`EXIT_REVIEW_REQUIRED`, `URGENT_REVIEW_REQUIRED`, and
+`URGENT_EXIT_REVIEW_REQUIRED`. If the risk governor blocks new entries or
+returns no-trade, the final brief must preserve that block. Open-position risk
+events require human review; they do not authorize automatic liquidation.
 
 ## Portfolio tracker requirements
 
@@ -468,24 +543,22 @@ Before live capital:
 6. Run constrained paper trading.
 7. Only after acceptance gates pass should live execution be considered.
 
-## Stock execution adapter direction
+## Future read-only account integration
 
-The intended equity broker integration remains **Moomoo API where supported**, beginning with read-only account and position synchronization.
+The only near-term account integration under consideration is **Moomoo API
+where supported**, beginning with read-only account and position
+synchronization. This sprint does not authorize broker order operations.
 
-Any future execution adapter must support:
+The read-only integration may support:
 
 - Account and balance fetch
 - Position fetch
 - Quote fetch
-- Order preview
-- Place order
-- Cancel order
-- Order status
-- Fill history
 - Market-hours awareness
-- Fee estimate
 
-Even when an adapter exists, the current operating model remains human-approved execution.
+Any later paper or live adapter requires separate validation gates and human
+approval. No current agent may submit, cancel, reduce, close, or flatten a
+live position.
 
 ## Deferred technical enhancements
 
@@ -520,24 +593,20 @@ Each enhancement must demonstrate incremental value beyond the existing stack be
 
 ## Recommended next implementation sprints
 
-### Sprint 002 — Portfolio ledger
-- Portfolio, position, fill, and decision models
-- Persistent ledger
-- P/L accounting
-- Risk-budget calculations
-- Circuit-breaker state persistence
+### Sprint 002 — Persistent Portfolio Ledger
+- Cash, positions, fills, realized/unrealized P/L, fees, and slippage
+- Maximum favorable/adverse excursion, drawdown, and strategy attribution
+- Risk-to-stop and exposure accounting
 
-### Sprint 003 — Strategy experiment registry
+### Sprint 003 — Strategy Experiment Registry + Backtest Integration
 - Connect the existing backtest engine to the strategy scorecard
-- Persist every experiment and parameter set
-- Regime-specific score history
-- Controlled method promotion / demotion
+- Persist every material experiment and parameter set
+- Regime segmentation, walk-forward, untouched holdout, and cost stress
+- Overfitting diagnostics and controlled method promotion/demotion
 
-### Sprint 004 — Daily candidate engine runtime
-- Universe construction and liquidity filters
-- Scheduled morning research run
-- Candidate aggregation
-- Structured human briefs
+### Sprint 004 — Daily Stock Universe / Scanner Runtime
+- U.S. stock universe, liquidity, price, and relative-volume filters
+- Catalyst discovery, broad screening, and candidate queue
 
 ### Sprint 005 — Continuous news notification service
 - Source adapters
@@ -553,20 +622,19 @@ Each enhancement must demonstrate incremental value beyond the existing stack be
 - Exposure clustering
 - NORMAL / CAUTION / DEFENSIVE / LOCKOUT / RECOVERY transitions
 
-### Sprint 007 — Broker read-only integration
-- Moomoo account and position sync where supported
-- No autonomous execution
+### Sprint 007 — Moomoo Read-Only Account / Position Sync Where Supported
+- Account and position synchronization only
+- No order placement, cancellation, or autonomous execution
 
 ### Sprint 008 — Prospective shadow portfolio
 - Full daily workflow on live data without capital
 - Strategy and agent calibration
 - Risk-veto evaluation
 
-### Sprint 009 — Constrained paper trading
-- Human-approved paper orders
-- Complete audit trail
+### Sprint 009 — Human-Approved Paper Trading
+- Paper actions require explicit human approval
+- Complete decision and execution audit trail
 
-### Sprint 010 — Live pilot consideration
-- Only after validation gates pass
-- Minimal capital
-- Human approval retained
+### Sprint 010 — Constrained Live Pilot Consideration
+- Consider only after all validation gates pass
+- Retain explicit human approval and bounded controls
