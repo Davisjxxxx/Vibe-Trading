@@ -165,7 +165,7 @@ agents:
       2. Do not average down through an identified structural break.
       3. For a small account, discard trades whose expected edge is consumed by friction.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [factor-research, correlation-analysis, volatility, risk-analysis, yfinance]
+    skills: [pair-trading, factor-research, correlation-analysis, volatility, risk-analysis, yfinance]
     max_iterations: 45
     timeout_seconds: 600
     max_retries: 1
@@ -291,7 +291,7 @@ agents:
       2. Do not chase an enormous gap without evidence that new information exceeds what price already reflects.
       3. Record exact event timestamps.
     tools: [bash, read_file, write_file, load_skill, factor_analysis, web_search]
-    skills: [earnings-revision, earnings-forecast, event-study, sentiment-analysis, yfinance]
+    skills: [earnings-revision, earnings-forecast, event-driven, corporate-events, sentiment-analysis, yfinance]
     max_iterations: 50
     timeout_seconds: 700
     max_retries: 1
@@ -337,7 +337,7 @@ agents:
       2. A market-wide event can dominate company-specific alpha.
       3. Preserve links/source names and timestamps in artifacts when available.
     tools: [bash, read_file, write_file, load_skill, web_search]
-    skills: [macro-analysis, global-macro, sentiment-analysis, risk-analysis]
+    skills: [macro-analysis, global-macro, geopolitical-risk, sentiment-analysis, risk-analysis]
     max_iterations: 55
     timeout_seconds: 700
     max_retries: 1
@@ -388,7 +388,7 @@ agents:
       2. Small accounts are especially sensitive to friction and overtrading.
       3. The final orchestrator may reduce risk further but may not override ENTRY_BLOCK or EMERGENCY_EXIT.
     tools: [bash, read_file, write_file, load_skill]
-    skills: [risk-analysis, volatility, correlation-analysis, asset-allocation]
+    skills: [risk-analysis, volatility, correlation-analysis, asset-allocation, execution-model, market-microstructure]
     max_iterations: 50
     timeout_seconds: 700
     max_retries: 1
@@ -509,6 +509,7 @@ tasks:
     prompt_template: "Apply hard portfolio risk governance to the complete specialist evidence for {target}. Account size: {account_size}."
     depends_on: [task-momentum, task-trend-regime, task-relative-value, task-fundamentals, task-valuation, task-catalyst, task-macro-news]
     input_from:
+      data_quality: task-data-quality
       momentum: task-momentum
       trend_regime: task-trend-regime
       relative_value: task-relative-value
@@ -522,7 +523,15 @@ tasks:
     prompt_template: "Synthesize all evidence and issue the final auditable swing-trade decision for {target}, honoring the risk governor without exception."
     depends_on: [task-risk-governor]
     input_from:
-      governed_decision: task-risk-governor
+      data_quality: task-data-quality
+      momentum: task-momentum
+      trend_regime: task-trend-regime
+      relative_value: task-relative-value
+      fundamentals: task-fundamentals
+      valuation: task-valuation
+      catalyst: task-catalyst
+      macro_news: task-macro-news
+      risk_governor: task-risk-governor
 
 variables:
   - name: target
