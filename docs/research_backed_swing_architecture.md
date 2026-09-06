@@ -1,159 +1,261 @@
-# Research-Backed Swing Trading Architecture
+# Research-Backed Stock Swing Trading Architecture
 
-## Purpose
+## Scope
 
-This document defines the target architecture for evolving Vibe-Trading into an evidence-first, multi-agent swing-trading decision and portfolio-management system for U.S. equities and crypto. The initial model portfolio is **$1,000** and the system must prioritize survival, auditability, and falsifiable decision logic over trade frequency.
+This is the controlling architecture for the current build. The system is **stock trading only**. Crypto, digital-asset execution, and crypto-specific risk feeds are out of scope for this phase.
 
-Historical backtests are evidence, not guarantees. No strategy, book, author, factor, indicator, or AI agent is treated as infallible.
+The initial model portfolio is **$1,000**. The design objective is not maximum trade frequency. It is disciplined opportunity selection, capital preservation, auditable reasoning, and prospective validation.
 
-## Core design principle
+Historical backtests are evidence, not guarantees. No strategy, author, factor, indicator, or AI agent is treated as infallible.
 
-The system must combine **independent causal signal families**, not simply collect many agents and count votes.
+## Core operating principle
 
-The initial families are:
+The system must separate five decisions:
 
-1. **Cross-sectional momentum / continuation** — Gray/Vogel-style quantitative momentum.
-2. **Trend quality / regime / volatility** — Clenow-style regression momentum, regime filters, and ATR-informed risk.
-3. **Relative value / mean reversion** — Chan-style statistical-arbitrage and convergence logic.
-4. **Accounting quality / business strength** — Penman/Pope-style financial-statement analysis with Piotroski-style health diagnostics and Buffett-style business-quality discipline.
-5. **Valuation / expectations** — Damodaran-style valuation and reverse-implied expectations, with Greenblatt-style quality/value ranking where structurally appropriate.
-6. **Earnings / revisions / catalysts** — post-earnings drift, guidance, revisions, estimate changes, event timing, and reaction quality.
-7. **Macro / news / tail risk** — real-time market, geopolitical, regulatory, cyber, liquidity, exchange, and issuer-level risk.
-8. **Portfolio risk** — deterministic limits, correlation awareness, exposure constraints, cost awareness, and risk-of-ruin controls.
+1. **What market regime are we in?**
+2. **Which validated methods fit that regime?**
+3. **Which stocks deserve deeper review today?**
+4. **Does technical structure support a trade now?**
+5. **Does portfolio risk permit the trade?**
 
-Gray/Vogel momentum and Clenow trend are deliberately tagged as the same **momentum/continuation correlation cluster**. They may confirm one another but may not be counted as independent bullish votes.
+The system may recommend actions, but a human remains the final decision maker.
 
-## Phase 1: Decision swarm
+No component may place, cancel, reduce, or close a live order autonomously in the current design.
 
-The new `swing_trading_command_center` preset establishes the research/control plane.
+## Daily decision workflow
 
-### Agents
+The primary daily control plane is the `stock_daily_decision_desk` swarm.
 
-- Point-in-Time Data Quality Guard
-- Quantitative Momentum Specialist
-- Trend/Regime/Volatility Specialist
-- Relative-Value Specialist
-- Fundamental Accounting Quality Specialist
-- Valuation/Expectations Specialist
-- Earnings/Catalyst Specialist
-- Macro/News/Black-Swan Sentinel
-- Portfolio Risk Governor
-- Chief Investment Orchestrator
+### Stage 1 — Market regime diagnosis
 
-### Decision contract
+The system evaluates:
 
-Every specialist should converge toward a standardized output containing at least:
+- Broad index trend
+- Breadth
+- Volatility
+- Rates and major macro events
+- Sector leadership
+- Correlation behavior
+- Liquidity and execution conditions
+- Whipsaw / failed-breakout behavior
 
-```json
-{
-  "target": "AAPL",
-  "as_of": "ISO-8601 timestamp",
-  "signal_family": "momentum|mean_reversion|fundamental|valuation|catalyst|macro_news|risk",
-  "signal": "BULLISH|BEARISH|NEUTRAL|NO_EDGE",
-  "confidence": 0,
-  "horizon_trading_days": [3, 20],
-  "thesis": "...",
-  "evidence_for": [],
-  "evidence_against": [],
-  "entry_condition": "...",
-  "invalidation_condition": "...",
-  "data_quality": "HIGH|MEDIUM|LOW",
-  "correlation_cluster": "...",
-  "risk_factors": [],
-  "missing_data": []
-}
-```
+The regime is classified as one of:
 
-The final orchestrator must not increase confidence merely because multiple agents agree when they depend on the same factor or data transformation.
+- `TREND_BULL`
+- `TREND_BEAR`
+- `RANGE_BOUND`
+- `HIGH_VOLATILITY`
+- `LOW_VOLATILITY`
+- `MACRO_STRESS`
+- `UNCERTAIN`
 
-## Phase 2: $1,000 portfolio ledger and tracker
+The regime diagnosis does not authorize trades. It informs which validated methods deserve more or less weight.
 
-The portfolio tracker should become the system of record for all simulated, paper, and live positions.
+## Strategy portfolio and scorecard
 
-### Required portfolio state
+The portfolio tracker must maintain a library of candidate trading methods and score them using evidence rather than recent anecdotes.
 
-- Starting equity
-- Current cash
-- Net liquidation value
-- Realized P/L
-- Unrealized P/L
-- Fees and slippage paid
-- Gross exposure
-- Net exposure
-- Long exposure
-- Short exposure
-- Equity exposure
-- Crypto exposure
-- Per-sector exposure
-- Per-signal-family exposure
-- Correlated-cluster exposure
-- Daily drawdown
-- Weekly drawdown
-- Peak-to-trough drawdown
-- Open-risk dollars to all stops/invalidation levels
-- Available risk budget
+The first deterministic implementation is in `agent/src/portfolio/strategy_scorecard.py`.
 
-### Required position state
+### Required evidence
 
-- Instrument and market
-- Direction
-- Quantity / fractional quantity
-- Average entry price
-- Current price
-- Market value
-- Stop / invalidation level
+Each method should eventually retain:
+
+- Trade count
+- Win rate
+- Expectancy in R
+- Profit factor
+- Sharpe or comparable risk-adjusted measure
+- Maximum drawdown
+- Average trade edge after realistic costs
+- Walk-forward result
+- Untouched holdout result
+- Cost-stress result
+- Overfitting warning status
+- Regime-specific performance
+- Last validation timestamp
+
+### What the scorecard does
+
+The scorecard ranks methods using:
+
+- Expectancy
+- Profit factor
+- Drawdown
+- Sample size
+- Walk-forward robustness
+- Holdout robustness
+- Cost-stress robustness
+- Current-regime fit
+
+Win rate alone cannot promote a strategy.
+
+A method can be classified as:
+
+- `ACTIVE_CANDIDATE`
+- `SHADOW_ONLY`
+- `REJECTED`
+
+A strong historical score does not permit silent live deployment. Strategy changes remain controlled changes.
+
+### Regime-based pivoting
+
+The system may recommend shifting emphasis between validated methods when current market conditions change. Examples include:
+
+- Trend methods receiving more attention in healthy directional markets
+- Mean-reversion methods receiving more attention in stable range-bound markets
+- Reduced activity during extreme volatility or macro stress
+
+The system must not assume that a reversal is due after a losing streak.
+
+## Stage 2 — Daily research and candidate generation
+
+Independent research streams produce candidate stocks from a liquid U.S. equity universe.
+
+Initial streams include:
+
+### Momentum / continuation
+
+Research concepts include Gray/Vogel-style quantitative momentum and Clenow-style trend quality.
+
+These are one correlated evidence family. Agreement improves confidence inside the family but is not counted as two independent votes.
+
+### Relative value / mean reversion
+
+Chan-style relative-value logic is used only when economic peer relationships and spread stability are defensible.
+
+### Fundamental quality and catalysts
+
+The system evaluates:
+
+- Earnings
+- Revisions
+- Guidance
+- SEC filings
+- Balance-sheet condition
+- Accounting quality
+- Corporate events
+- Valuation expectations
+- Material changes in business outlook
+
+Fundamental and catalyst analysis nominates candidates. It does not determine technical timing by itself.
+
+### News and macro risk
+
+The news layer evaluates fresh stock, sector, regulatory, exchange, geopolitical, and macro information.
+
+It is a **notification and review system**, not an autonomous trade executor.
+
+## Candidate committee
+
+The candidate committee receives the independent research streams and ranks only the strongest opportunities for technical review.
+
+It must:
+
+- Group evidence by causal family
+- Avoid double-counting correlated signals
+- Require a clear edge hypothesis
+- Require acceptable liquidity
+- Record contradictory evidence
+- Reject candidates with unresolved severe news risk
+- Permit `NO_CANDIDATES` when the environment is poor
+
+The daily queue should remain intentionally small so deeper technical review is focused on the highest-quality opportunities.
+
+## Technical analysis sequence
+
+The technical layer begins only after research has identified a candidate worth examining.
+
+### Primary technical analyst
+
+Evaluates:
+
+- Multi-timeframe trend and structure
+- Support and resistance
+- Relative strength
+- Moving-average context
+- Volume behavior
+- Volatility
+- Gap behavior
+- Entry timing
+
+Indicators are evidence, not independent votes. The system must avoid stacking multiple indicators that measure the same underlying price behavior.
+
+### Adversarial technical analyst
+
+A second perspective challenges the setup and searches for:
+
+- Failed breakout risk
+- Divergence
+- Exhaustion
+- Nearby supply or demand
+- Poor volume confirmation
+- Gap-through-stop risk
+- Volatility expansion
+- Regime mismatch
+- Crowded technical levels
+
+The adversarial agent does not disagree mechanically. It must also state what evidence would invalidate its counter-thesis.
+
+### Technical execution-quality analyst
+
+This layer reconciles both technical perspectives and proposes:
+
+- Entry condition
+- Invalidation / stop logic
 - Target zone
-- Initial thesis
-- Current thesis status
-- Dominant signal family
-- Entry timestamp
-- Planned holding horizon
-- Realized/unrealized P/L
-- Fees/slippage
-- Maximum favorable excursion
-- Maximum adverse excursion
-- Risk governor status
-- Latest macro/news status
-- Last full re-evaluation timestamp
+- Expected holding period
+- Spread and slippage considerations
+- Liquidity constraints
+- Gap-risk considerations
 
-### Trade journal / audit record
+It produces a proposed plan only. It never submits an order.
 
-Every proposed or executed action must retain:
+## Portfolio risk governor
 
-- Agent outputs used
-- Data timestamps
-- News sources and timestamps
-- Final decision
-- Rejected alternatives
-- Position-sizing math
-- Expected transaction cost
-- Risk-governor ruling
-- User/broker execution result
-- Post-trade outcome
-- Post-mortem tags
+The risk governor has precedence over alpha-seeking agents.
 
-This record is required for later calibration and agent-performance attribution.
+It evaluates:
 
-## Initial small-account risk policy
+- Current portfolio equity
+- Daily and weekly P/L
+- Consecutive losses
+- Strategy-family health
+- Market regime
+- Whipsaw conditions
+- Liquidity
+- Slippage and spread quality
+- Correlated exposure
+- Open risk to stops
+- News alerts
 
-These are **conservative engineering defaults**, not proven optimal trading parameters. They should be treated as hypotheses and adjusted only through controlled validation.
+### Portfolio states
+
+The governor classifies the account as:
+
+- `NORMAL`
+- `CAUTION`
+- `DEFENSIVE`
+- `LOCKOUT`
+- `RECOVERY`
+
+### Initial engineering defaults
+
+These are starting hypotheses, not proven optimal settings:
 
 | Control | Initial value |
 |---|---:|
 | Starting model equity | $1,000 |
 | Target risk per trade | 0.50% of equity |
 | Hard max risk per trade | 1.00% of equity |
-| Max single-position market value | 25% of equity |
-| Max gross exposure | 80% of equity |
-| Max correlated-cluster exposure | 35% of equity |
-| Max simultaneous positions | 4 |
-| Daily soft loss stop | 2% |
-| Weekly hard loss stop | 5% |
-| Initial minimum planned reward/risk | ~1.8:1 |
+| Max concurrent positions | 4 |
+| Max correlated-cluster exposure | 35% |
+| Soft daily loss stop | 2% |
+| Hard weekly loss stop | 5% |
 
-For a $1,000 account, 0.50% target risk is $5 and 1.00% maximum risk is $10. The position size must be calculated from stop/invalidation distance and realistic execution cost, not from confidence alone.
+For a $1,000 account, the default target planned loss is about **$5 per trade**, with a hard ceiling of about **$10** before later validation changes those limits.
 
-Example:
+Position size must be derived from invalidation distance and expected trading cost, not confidence alone.
 
 ```text
 risk_budget = equity * risk_pct
@@ -161,298 +263,310 @@ risk_per_share = abs(entry - invalidation) + estimated_cost_per_share
 shares = risk_budget / risk_per_share
 ```
 
-If the broker does not support a viable fractional size or if fees/spread consume the edge, the correct output is **NO_TRADE**.
+## Hyper-volatility and loss-streak circuit breaker
 
-## Phase 3: Continuous real-time macro/news risk governor
+The system must distinguish random variance from evidence that the strategy or market environment has become hostile.
 
-The one-shot swarm can evaluate fresh news at decision time, but it is not a continuous protection system. A separate event-driven service must be built for open positions.
+It should evaluate:
 
-### Service responsibility
+- Consecutive losing trades
+- Consecutive losing days
+- Whether losses are concentrated in one strategy family
+- Realized volatility expansion
+- Repeated breakout / stop / reversal patterns
+- Spread widening
+- Slippage deterioration
+- Cross-stock correlation convergence
+- Breadth deterioration
+- Market-wide news stress
 
-`LiveRiskSentinel` should run independently of the alpha swarm and continuously ingest/re-evaluate events while positions are open.
+### State behavior
 
-### Event sources
+- `NORMAL`: standard validated risk limits
+- `CAUTION`: reduce size or raise evidence threshold
+- `DEFENSIVE`: materially reduce risk and trade frequency
+- `LOCKOUT`: no new trade recommendations
+- `RECOVERY`: limited re-entry after objective normalization
 
-The implementation should support multiple source classes with provenance and deduplication:
+A losing streak does **not** imply that a reversal is due.
 
-- Exchange status / trading halts
-- Company filings and investor-relations releases
-- SEC/regulator announcements
-- Central-bank and government releases
-- High-quality financial news wires/APIs
-- Earnings / guidance releases
-- Economic-calendar events
-- Crypto exchange status feeds
-- Crypto protocol/security incident feeds
-- Stablecoin and major on-chain stress alerts where relevant
-- Broker/execution status
+A restart from `LOCKOUT` requires evidence that volatility, whipsaw, liquidity, strategy-family performance, and relevant news risk have normalized.
 
-Do not make one social-media source or one news vendor a single point of failure.
+## Real-time news notification model
 
-### Event schema
+A future continuous service may monitor fresh information while positions are open, but it must remain human-in-the-loop.
 
-```json
-{
-  "event_id": "...",
-  "observed_at": "...",
-  "published_at": "...",
-  "source": "...",
-  "source_quality": "PRIMARY|HIGH|MEDIUM|LOW",
-  "scope": "SYSTEMIC|MARKET|SECTOR|ISSUER|ASSET|EXCHANGE",
-  "severity": 0,
-  "confidence": 0,
-  "affected_symbols": [],
-  "transmission_paths": [],
-  "summary": "...",
-  "corroborating_sources": [],
-  "status": "UNCONFIRMED|CONFIRMED|RESOLVED"
-}
-```
+### Alert classes
 
-### Risk actions
+- `CLEAR`
+- `REVIEW`
+- `HIGH_PRIORITY`
+- `URGENT`
 
-The deterministic policy engine should translate evaluated events into:
+### Each alert should include
 
-- `NO_ACTION`
-- `WATCH`
-- `BLOCK_NEW_ENTRIES`
-- `REDUCE_POSITION`
-- `HEDGE`
-- `EXIT_POSITION`
-- `EMERGENCY_EXIT`
+- Source
+- Timestamp
+- Source quality
+- Affected symbols
+- Direct relevance
+- Transmission path
+- Confidence
+- Corroboration status
+- Suggested human review question
+- What would de-escalate the alert
 
-The LLM/news agent can classify and explain events, but the actual broker action must pass a deterministic policy layer.
+### Human-in-the-loop rule
 
-### Example hard triggers
+The system may recommend:
 
-Potential high-severity examples include:
+- Do nothing
+- Delay entry
+- Block new entries
+- Reduce exposure
+- Review an exit
 
-- Confirmed issuer fraud/bankruptcy filing
-- Regulatory trading halt
-- Confirmed critical protocol exploit affecting the held crypto asset
-- Exchange outage that prevents normal risk management
-- Major stablecoin depeg affecting the trade's liquidity path
-- Systemic banking/liquidity event
-- Surprise geopolitical escalation with direct market transmission
-- Unexpected central-bank action producing disorderly cross-asset repricing
-- Broker/API failure combined with an unbounded open-risk condition
+But the human must approve the actual action.
 
-A severe headline alone should not force an exit. Source quality, direct relevance, confirmation, market transmission, liquidity, and current exposure all matter.
+An urgent headline by itself is not sufficient for an automatic sale. Source quality, confirmation, relevance, market reaction, current exposure, and liquidity all matter.
 
-## Phase 4: Portfolio-level orchestration
+## Final human decision brief
 
-The final system should separate three decisions:
+Every actionable recommendation must end in a concise brief containing at least:
 
-1. **Is there an edge?** — research swarm.
-2. **Is the risk acceptable?** — deterministic + agent risk governor.
-3. **Can the trade be executed economically right now?** — execution layer.
+- Symbol
+- Proposed action
+- Dominant thesis
+- Why today
+- Current market regime
+- Strategy method
+- Technical entry condition
+- Invalidation
+- Target zone
+- Proposed position risk
+- Evidence for
+- Evidence against
+- News alert status
+- Portfolio risk state
+- Risk-governor action
+- Key unknowns
+- Human review checklist
 
-### Candidate ranking
-
-When multiple opportunities exist, the system should rank on expected net value rather than raw confidence:
+Every actionable brief must include:
 
 ```text
-expected_net_edge
-= expected_gross_edge
-- fees
-- spread
-- slippage
-- borrow/financing cost
-- uncertainty_buffer
-- concentration_penalty
+HUMAN_APPROVAL_REQUIRED: true
+DO_NOT_EXECUTE_AUTONOMOUSLY: true
 ```
 
-### Correlation-aware portfolio logic
+If the risk governor blocks new entries or returns no-trade, the final brief must preserve that block.
 
-The portfolio layer must recognize that five different technology stocks or several momentum names may represent one underlying exposure. Risk should be budgeted by both instrument and factor/cluster.
+## Portfolio tracker requirements
 
-## Phase 5: Execution adapters
+The portfolio tracker should become the system of record for simulated, paper, and eventually live stock positions.
 
-Initial intended broker/exchange adapters:
+Required portfolio state includes:
 
-- **Coinbase API** for crypto
-- **Moomoo API** for equities where supported
+- Starting equity
+- Cash
+- Net liquidation value
+- Realized P/L
+- Unrealized P/L
+- Fees and slippage
+- Gross and net exposure
+- Sector exposure
+- Strategy-family exposure
+- Correlated-cluster exposure
+- Daily drawdown
+- Weekly drawdown
+- Peak-to-trough drawdown
+- Open risk to stops
+- Available risk budget
+- Current circuit-breaker state
 
-Execution must remain disabled until shadow/paper acceptance tests pass.
+Required position state includes:
 
-### Execution adapter contract
+- Symbol
+- Direction
+- Quantity
+- Average entry
+- Current price
+- Market value
+- Stop / invalidation
+- Target
+- Initial thesis
+- Current thesis status
+- Strategy method
+- Signal family
+- Entry timestamp
+- Planned horizon
+- Realized and unrealized P/L
+- Fees and slippage
+- Maximum favorable excursion
+- Maximum adverse excursion
+- News alert status
+- Risk state
+- Last re-evaluation time
 
-Each adapter should expose a common interface for:
+## Trade and decision journal
 
-- Account/balance fetch
-- Position fetch
-- Quote/order-book fetch
-- Place order
-- Cancel order
-- Get order status
-- Trade/fill history
-- Market-hours / exchange-status awareness
-- Estimated fee
-- Emergency flatten/reduce action
+Every proposed or executed action must retain:
 
-No agent should directly construct arbitrary broker calls. All orders must flow through an execution policy service with limits.
+- Research outputs
+- Data timestamps
+- News sources and timestamps
+- Strategy-scorecard state
+- Candidate ranking
+- TA primary view
+- TA counter-thesis
+- Final technical plan
+- Risk-governor ruling
+- Human approval or rejection
+- Execution result when applicable
+- Post-trade outcome
+- Postmortem tags
 
-## Phase 6: Backtesting and validation
+This evidence is necessary to learn which agents, strategy families, and vetoes add real incremental value.
 
-The system should be tested in layers rather than backtesting one giant LLM stack as a black box.
+## Backtesting and validation
 
-### Strategy-family validation
+Each codifiable strategy family should be tested separately before the combined system is judged.
 
-Validate each codifiable family independently:
+Required controls include:
 
-- Momentum ranking
-- Trend/regime filter
-- Relative-value model
-- Earnings/revision/catalyst rules
-- Fundamental-quality filters
-- Valuation priors
-
-### Data requirements
-
-- Point-in-time fundamentals
-- Actual filing timestamps
-- Historical index/universe membership
-- Delisted securities
+- Point-in-time data
+- Historical universe membership
+- Delisted stocks where appropriate
 - Corporate actions
-- Historical analyst estimates if used
-- Realistic market-hours behavior
-
-### Execution assumptions
-
+- Actual filing timestamps
+- Historical estimates if used
 - Bid/ask spread
 - Slippage
-- Commissions/fees
-- Crypto taker/maker fees
-- Borrow cost / locate availability for shorts
+- Commissions
 - Partial fills
 - Overnight gaps
 - Liquidity ceilings
-
-### Statistical controls
-
 - Walk-forward validation
-- Completely untouched holdout period
-- Parameter-sensitivity surfaces
+- Untouched holdout periods
+- Parameter-sensitivity testing
 - Regime segmentation
-- Monte Carlo/permutation tests where appropriate
 - Bootstrap confidence intervals
 - Multiple-testing log
-- Probability-of-backtest-overfitting / deflated-performance diagnostics where feasible
+- Overfitting diagnostics where feasible
 
-Track every material experiment. Do not optimize thousands of variants and report only the winner.
+Track every material experiment. Do not optimize many variants and report only the winner.
 
-## Phase 7: Prospective shadow mode
+## Prospective validation sequence
 
-Before live money:
+Before live capital:
 
-1. Freeze decision rules and risk policy.
-2. Run prospectively on live data with no execution.
-3. Record every proposed trade and risk intervention.
-4. Compare expected vs realized slippage, timing, signal decay, and correlation.
-5. Require a minimum observation sample across different market regimes.
-6. Only then enable constrained paper trading.
-7. Only after paper acceptance should live trading be considered.
+1. Freeze the strategy rules and risk policy.
+2. Run the daily desk prospectively with live data and no execution.
+3. Record every candidate, recommendation, veto, and alert.
+4. Compare expected vs realized behavior.
+5. Evaluate performance across different regimes.
+6. Run constrained paper trading.
+7. Only after acceptance gates pass should live execution be considered.
 
-## Additional alpha/risk layers to add after core acceptance
+## Stock execution adapter direction
 
-The following can improve short-horizon context but should not be allowed to overwhelm the evidence-backed core until independently validated:
+The intended equity broker integration remains **Moomoo API where supported**, beginning with read-only account and position synchronization.
+
+Any future execution adapter must support:
+
+- Account and balance fetch
+- Position fetch
+- Quote fetch
+- Order preview
+- Place order
+- Cancel order
+- Order status
+- Fill history
+- Market-hours awareness
+- Fee estimate
+
+Even when an adapter exists, the current operating model remains human-approved execution.
+
+## Deferred technical enhancements
+
+The following can be added after the core stock system is stable and independently tested:
 
 - Pivot high/low event learner
 - VWAP stretch/reclaim logic
 - Relative-volume and liquidity filters
 - ATR stop/target modeling
-- Signal-quality/no-trade gate
-- Sector/industry relative strength
-- Breadth and market-internals regime layer
-- Options-implied volatility / skew where economically relevant
-- Crypto funding/basis, liquidation heatmap, stablecoin flow, and on-chain stress
-- Sentiment anomaly detector for under-the-radar names and event-driven attention spikes
+- Signal-quality / no-trade gate
+- Sector and industry relative strength
+- Breadth and market internals
+- Options-implied volatility and skew where relevant
+- Sentiment and attention anomaly discovery
 
-Each should enter as a separate evidence family or modifier only after testing for incremental value beyond the existing stack.
+Each enhancement must demonstrate incremental value beyond the existing stack before receiving decision weight.
 
-## Agent-performance learning layer
+## Non-negotiable rules
 
-The system should eventually score agents by **calibration and incremental value**, not whether their narrative sounded convincing.
+1. Stock trading only for the current build.
+2. No invented market, fundamental, or news data.
+3. No silent parameter changes after seeing outcomes.
+4. No double-counting correlated evidence.
+5. No averaging down outside a predefined risk budget.
+6. No strategy promotion based on win rate alone.
+7. No treating a losing streak as proof a reversal is due.
+8. No bypass of the portfolio risk governor.
+9. No autonomous trade action from a news alert.
+10. Every actionable recommendation requires explicit human approval.
+11. Every decision must be reconstructable from stored evidence.
+12. `NO_TRADE` and `NO_CANDIDATES` are valid successful outcomes.
 
-Track:
-
-- Brier/log-loss style calibration for probabilistic calls where possible
-- Directional accuracy
-- Expected vs realized move
-- Signal decay by horizon
-- Performance by regime
-- False-positive and false-negative rates
-- Incremental lift over baseline
-- Correlation with other agents
-- Veto quality: losses avoided vs good trades incorrectly blocked
-
-Agent weights must be learned only from out-of-sample/prospective evidence and must remain bounded so that short hot streaks do not cause runaway reweighting.
-
-## Non-negotiable safety and integrity rules
-
-1. No invented market or fundamental data.
-2. No silent parameter changes after seeing outcomes.
-3. No double-counting correlated agents.
-4. No averaging down outside a pre-defined risk budget.
-5. No live execution without explicit adapter-level limits.
-6. No treating historical win rate as a guarantee.
-7. No bypass of the risk governor by the final orchestrator.
-8. No fully autonomous emergency action based solely on an unverified single-source headline.
-9. Every live/paper decision must be reconstructable from stored evidence.
-10. `NO_TRADE` is a successful system outcome when uncertainty dominates edge.
-
-## Recommended implementation sequence
-
-### Sprint 001 — Strategy control plane
-- Add research-backed swarm preset.
-- Establish methodology boundaries and risk-governor precedence.
-- Add architecture specification.
+## Recommended next implementation sprints
 
 ### Sprint 002 — Portfolio ledger
-- Implement portfolio/position/order/trade Pydantic models.
-- Persistent ledger and P/L accounting.
-- $1,000 risk-budget calculator.
-- Tests for fills, partial exits, fees, and drawdown.
+- Portfolio, position, fill, and decision models
+- Persistent ledger
+- P/L accounting
+- Risk-budget calculations
+- Circuit-breaker state persistence
 
-### Sprint 003 — Deterministic risk policy engine
-- Encode account/position/cluster/drawdown limits.
-- Machine-readable risk decisions.
-- Hard block/size-reduction/exit states.
-- Unit and property tests.
+### Sprint 003 — Strategy experiment registry
+- Connect the existing backtest engine to the strategy scorecard
+- Persist every experiment and parameter set
+- Regime-specific score history
+- Controlled method promotion / demotion
 
-### Sprint 004 — Live news/event ingestion
-- Source adapters.
-- Deduplication and provenance.
-- Event severity model.
-- Position-to-event relevance graph.
+### Sprint 004 — Daily candidate engine runtime
+- Universe construction and liquidity filters
+- Scheduled morning research run
+- Candidate aggregation
+- Structured human briefs
 
-### Sprint 005 — Continuous LiveRiskSentinel
-- Event loop and re-evaluation scheduler.
-- Risk state transitions.
-- Alerting.
-- Shadow-only emergency-action recommendations.
+### Sprint 005 — Continuous news notification service
+- Source adapters
+- Provenance and deduplication
+- Symbol relevance mapping
+- Alert delivery
+- Human acknowledgement workflow
 
-### Sprint 006 — Coinbase/Moomoo execution abstraction
-- Read-only account sync first.
-- Paper execution.
-- Idempotent order lifecycle.
-- Kill switch.
+### Sprint 006 — Deterministic portfolio risk engine
+- Daily/weekly limits
+- Loss-streak logic
+- Regime stress logic
+- Exposure clustering
+- NORMAL / CAUTION / DEFENSIVE / LOCKOUT / RECOVERY transitions
 
-### Sprint 007 — Strategy backtest harness
-- Implement codifiable research-backed families.
-- Walk-forward and cost-aware testing.
-- Experiment registry and overfitting controls.
+### Sprint 007 — Broker read-only integration
+- Moomoo account and position sync where supported
+- No autonomous execution
 
-### Sprint 008 — Portfolio candidate engine
-- Broad-stock/crypto scanner.
-- Sentiment/catalyst discovery layer.
-- Candidate prioritization by expected net edge.
+### Sprint 008 — Prospective shadow portfolio
+- Full daily workflow on live data without capital
+- Strategy and agent calibration
+- Risk-veto evaluation
 
-### Sprint 009 — Prospective shadow portfolio
-- Run the full stack live without money.
-- Score agent calibration and risk interventions.
+### Sprint 009 — Constrained paper trading
+- Human-approved paper orders
+- Complete audit trail
 
-### Sprint 010 — Constrained live pilot
-- Only after acceptance gates pass.
-- Minimal capital and conservative limits.
-- Human-observable kill switch and complete audit trail.
+### Sprint 010 — Live pilot consideration
+- Only after validation gates pass
+- Minimal capital
+- Human approval retained
